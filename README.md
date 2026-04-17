@@ -15,7 +15,7 @@ A browser-based (Chromium) Zoom automation tool built with Python and Playwright
 It is recommended to use a virtual environment to manage dependencies.
 
 ```bash
-python -m venv venv
+python -m venv .venv
 
 # Windows
 .\venv\Scripts\activate

@@ -18,10 +18,10 @@ It is recommended to use a virtual environment to manage dependencies.
 python -m venv .venv
 
 # Windows
-.\venv\Scripts\activate
+.\.venv\Scripts\activate
 
 # Mac/Linux
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 2. Install Python Dependencies

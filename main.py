@@ -2,17 +2,46 @@ import asyncio
 from playwright.async_api import async_playwright
 import datetime
 import os
+import re
+from urllib.parse import urlparse, parse_qs
 from pynput import keyboard
 
-# --- INTERACTIVE CONFIGURATION ---
+# --- CONFIGURATION & PARSING ---
 print("--- Zoom Bot Setup ---")
-MEETING_ID = input("Enter Meeting ID: ").strip()
-PASSCODE = input("Enter Passcode: ").strip()
+print("1. Manual Entry/Meeting ID")
+print("2. Use Zoom Link")
+choice = input("Select option (1 or 2): ").strip()
+
+MEETING_ID = ""
+PASSCODE = ""
+
+if choice == "2":
+    link = input("Paste Zoom Link: ").strip()
+    try:
+        # Example: https://us04web.zoom.us/j/5192772064?pwd=QU...
+        parsed_url = urlparse(link)
+        # Meeting ID is the last part of the path
+        path_parts = parsed_url.path.split('/')
+        MEETING_ID = path_parts[-1]
+        
+        # Passcode is the 'pwd' parameter
+        query_params = parse_qs(parsed_url.query)
+        PASSCODE = query_params.get('pwd', [''])[0]
+        
+        print(f"Extracted ID: {MEETING_ID}")
+        print(f"Extracted PWD: {'*' * len(PASSCODE)} (Hidden)")
+    except Exception as e:
+        print(f"Error parsing link: {e}")
+        exit()
+else:
+    MEETING_ID = input("Enter Meeting ID: ").strip()
+    PASSCODE = input("Enter Passcode: ").strip()
+
 DISPLAY_NAME = input("Enter Display Name: ").strip()
 LEAVE_TIME = input("Enter Leave Time (HH:MM, e.g., 19:50): ").strip()
 print("----------------------\n")
 
-# Dynamically find the video file in the same folder as this script
+# Dynamically find the video file
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VIDEO_PATH = os.path.join(BASE_DIR, "example.y4m")
 
@@ -32,13 +61,13 @@ listener.start()
 async def run_zoom_bot():
     global manual_exit_requested
     
-    # Basic validation to ensure critical fields aren't empty
     if not MEETING_ID or not LEAVE_TIME:
         print("Error: Meeting ID and Leave Time are required.")
         return
 
     async with async_playwright() as p:
         print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Launching Browser...")
+        # Note: Chromium is used to support fake media streams easily
         browser = await p.chromium.launch(headless=False, args=[
             "--use-fake-ui-for-media-stream",
             "--use-fake-device-for-media-stream",
@@ -49,15 +78,18 @@ async def run_zoom_bot():
         page = await context.new_page()
         
         print(f"Navigating to meeting {MEETING_ID}...")
+        # We use the web client (wc) join URL
         await page.goto(f"https://zoom.us/wc/join/{MEETING_ID}")
 
         # 1. Locate Meeting Frame
         target_frame = None
         for _ in range(30):
             for f in page.frames:
-                if await f.is_visible("#input-for-name"):
-                    target_frame = f
-                    break
+                try:
+                    if await f.is_visible("#input-for-name"):
+                        target_frame = f
+                        break
+                except: continue
             if target_frame: break
             await asyncio.sleep(1)
 
@@ -66,14 +98,16 @@ async def run_zoom_bot():
             await browser.close()
             return
 
-        # 2. Join credentials and Mute in Preview
+        # 2. Join credentials
         print(f"Entering credentials as '{DISPLAY_NAME}'...")
-        if await target_frame.is_visible("#input-for-pwd"):
-            await target_frame.fill("#input-for-pwd", PASSCODE)
-        await target_frame.fill("#input-for-name", DISPLAY_NAME)
+        if PASSCODE:
+            if await target_frame.is_visible("#input-for-pwd"):
+                await target_frame.fill("#input-for-pwd", PASSCODE)
         
-        await asyncio.sleep(3)
+        await target_frame.fill("#input-for-name", DISPLAY_NAME)
+        await asyncio.sleep(2)
 
+        # Mute in Preview if button exists
         try:
             mute_btn = target_frame.locator('button[aria-label*="mic"], button[aria-label*="audio"], #preview-audio-control-button').first
             if await mute_btn.is_visible():
@@ -86,7 +120,7 @@ async def run_zoom_bot():
         if await target_frame.is_visible("button.preview-join-button"):
             await target_frame.click("button.preview-join-button")
 
-        # 3. Handle Admittance and Post-Admission Mute
+        # 3. Admission Monitoring
         print("Bot is in transition. Waiting for host to admit...")
         bot_is_in = False
         
@@ -110,7 +144,7 @@ async def run_zoom_bot():
                     break
             await asyncio.sleep(2)
 
-        # 4. Stay until LEAVE_TIME or Ctrl+G
+        # 4. Stay until LEAVE_TIME
         print(f"Bot session active. Target exit: {LEAVE_TIME}")
         while True:
             now = datetime.datetime.now().strftime("%H:%M")

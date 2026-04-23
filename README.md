@@ -1,11 +1,11 @@
 # 📷 Zoom-Bot
-A browser-based (Chromium) Zoom automation tool built with Python and Playwright. This bot joins meetings via the web client, handles credentials, mutes audio on entry, and streams a local video file (`.y4m`) as a virtual camera.
+A browser-based (Chromium) Zoom automation tool built with Python and Playwright. This bot joins meetings via the web client, handles credentials, mutes audio on entry, and streams a local video file on loop (`.y4m`) as a virtual camera.
 
 ## ✨ Features
-* **Virtual Webcam:** Streams a local `.y4m` video file as your camera feed.
+* **Virtual Webcam:** Streams a local `.y4m` video file as your camera feed on loop.
 * **Auto-Mute:** Automatically mutes in the preview room and after joining the meeting.
 * **Scheduled Exit:** Leaves the meeting automatically at a user-defined time.
-* **Manual Override:** Use `Ctrl+G` to trigger a graceful exit sequence.
+* **Manual Override:** Use `Ctrl+G` to trigger exit the meeting.
 
 ---
 
@@ -15,13 +15,13 @@ A browser-based (Chromium) Zoom automation tool built with Python and Playwright
 It is recommended to use a virtual environment to manage dependencies.
 
 ```bash
-python -m venv venv
+python -m venv .venv
 
 # Windows
-.\venv\Scripts\activate
+.\.venv\Scripts\activate
 
 # Mac/Linux
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 2. Install Python Dependencies
